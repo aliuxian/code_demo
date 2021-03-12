@@ -1,27 +1,25 @@
-package flink.stream.pro_demo;
+package flink.stream.window;
 
+
+import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.streaming.api.datastream.AllWindowedStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.windowing.ProcessAllWindowFunction;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
-import org.apache.flink.util.Collector;
-
-import java.util.Iterator;
-
 
 /**
- * 全量聚合，窗口内元素到齐之后才开始处理元素，例如在窗口内对数据进行排序
- * 可以和IncrAggDemo对比，
- * 一个是全部到齐计算好了再返回
- * 一个是来一个算一个
+ * 增量聚合
+ * 窗口内累加，来一条累加一次，时间到再输出
  */
-public class FullAggDemo {
+public class IncrAggDemo {
     public static void main(String[] args) throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+        // 老的API需要指定
+//        env.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime);
 
         DataStreamSource<String> dataStream = env.socketTextStream("localhost", 9999);
 
@@ -29,21 +27,20 @@ public class FullAggDemo {
 
         AllWindowedStream<Integer, TimeWindow> windowedStream = intStream.windowAll(TumblingProcessingTimeWindows.of(Time.seconds(10)));
 
-        windowedStream.process(new ProcessAllWindowFunction<Integer, Integer, TimeWindow>() {
+        // 使用这种API，需要指定使用什么时间
+        // env.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime);
+//        AllWindowedStream<Integer, TimeWindow> windowedStream = intStream.timeWindowAll(Time.seconds(10));
+
+
+        windowedStream.reduce(new ReduceFunction<Integer>() {
             @Override
-            public void process(Context context, Iterable<Integer> iterable, Collector<Integer> collector) throws Exception {
-                System.out.println("执行逻辑");
-                Iterator<Integer> iterator = iterable.iterator();
-                int sum = 0;
-                while (iterator.hasNext()) {
-                    sum += iterator.next();
-                }
-                collector.collect(sum);
+            public Integer reduce(Integer integer, Integer t1) throws Exception {
+                System.out.println(integer +  " + " + t1);
+                return integer + t1;
             }
         }).print();
 
-        env.execute(FullAggDemo.class.getSimpleName());
-
+        env.execute(IncrAggDemo.class.getSimpleName());
 
     }
 }

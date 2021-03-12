@@ -1,4 +1,4 @@
-package flink.stream.pro_demo;
+package flink.stream.window;
 
 import org.apache.flink.api.common.functions.AggregateFunction;
 import org.apache.flink.api.java.tuple.Tuple2;
